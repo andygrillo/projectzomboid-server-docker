@@ -41,7 +41,14 @@ Log() {
 
 install() {
   LogAction "Starting server install"
-  /home/steam/steamcmd/steamcmd.sh +runscript /home/steam/server/install.scmd
+  
+  if [ "${SERVER_BRANCH}" = "unstable" ]; then
+    LogInfo "Installing unstable branch"
+    /home/steam/steamcmd/steamcmd.sh +runscript /home/steam/server/install_unstable.scmd
+  else
+    LogInfo "Installing stable branch"
+    /home/steam/steamcmd/steamcmd.sh +runscript /home/steam/server/install.scmd
+  fi
 }
 
 # rcon call

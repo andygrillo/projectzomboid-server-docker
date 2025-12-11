@@ -24,6 +24,10 @@ FROM cm2network/steamcmd:root
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gettext-base=0.21-12 \
     procps=2:4.0.2-3 \
+    software-properties-common=0.99.22.9 \
+    && add-apt-repository ppa:ubuntu-toolchain-r/test -y \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends libstdc++6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -44,7 +48,8 @@ ENV HOME=/home/steam \
     SERVER_NAME=pzserver \
     STEAM_VAC=true \
     USE_STEAM=true \
-    GENERATE_SETTINGS=true
+    GENERATE_SETTINGS=true \
+    SERVER_BRANCH=""
 
 COPY ./scripts /home/steam/server/
 
