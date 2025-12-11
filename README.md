@@ -80,8 +80,8 @@ docker run -d \
     -p 27015:27015/tcp \
     -e GENERATE_SETTINGS=true \
     --env-file .env \
-    -v ./projectzomboid/server-files:/project-zomboid \
-    -v ./projectzomboid/server-data:/project-zomboid-config
+    -v ./server-files:/project-zomboid \
+    -v ./server-data:/project-zomboid-config
     indifferentbroccoli/projectzomboid-server-docker
 ```
 
