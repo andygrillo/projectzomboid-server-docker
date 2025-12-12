@@ -27,7 +27,9 @@ Eat lag for breakfast
 | Storage  | 5GB     | 10GB                                    |
 
 > [!NOTE]
-> **Build 42 Support**: To use Project Zomboid's latest Build 42 Unstable branch, set `SERVER_BRANCH=unstable` in your .env file. Leave empty or unset for the stable branch.
+> **Build 42 Support**: To use Project Zomboid's latest Build 42 Unstable branch,
+> set `SERVER_BRANCH=unstable` in your .env file. Leave empty or unset for the
+> stable branch.
 
 ## How to use
 
@@ -280,5 +282,6 @@ Uses envsubst to replace the variables in the settings.ini.template file.
 
 #### configure-memory.sh
 
-Configures the JVM memory settings in ProjectZomboid64.json based on the MEMORY_GB environment variable.
-Converts GB to MB and updates the -Xms and -Xmx JVM arguments, allowing dynamic memory allocation instead of being locked to 8GB.
+Configures the JVM memory settings in ProjectZomboid64.json based on the
+MEMORY_XMX_GB and MEMORY_XMS_GB environment variables. Updates the -Xmx and -Xms
+JVM arguments, allowing dynamic memory allocation instead of being locked to 8GB.
