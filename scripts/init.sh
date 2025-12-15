@@ -17,7 +17,11 @@ chown -R steam:steam /project-zomboid /project-zomboid-config /home/steam/
 
 cat /branding
 
-install
+if [ "${UPDATE_ON_START:-true}" = "true" ]; then
+    install
+else
+    LogWarn "UPDATE_ON_START is set to false, skipping server update from Steam"
+fi
 
 # Configure memory settings
 configure_memory

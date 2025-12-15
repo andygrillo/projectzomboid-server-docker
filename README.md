@@ -154,6 +154,7 @@ It is highly recommended you set the following environment values before startin
 | RCON_PORT                                         | 27015                                                                                         | The port for the RCON (Remote Console)                                                                                                              |
 | MEMORY_XMX_GB                                     | 8                                                                                             | Server maximum memory allocation in GB. Sets -Xmx in ProjectZomboid64.json                                                                         |
 | MEMORY_XMS_GB                                     |                                                                                               | Optional: Server initial memory allocation in GB. Sets -Xms in ProjectZomboid64.json. If not specified, only -Xmx is configured                  |
+| UPDATE_ON_START                                   | true                                                                                          | If set to false, skips downloading and validating server files from Steam on startup. Useful to avoid overwriting server files on container restart. |
 | SERVER_BRANCH                                     | ""                                                                                            | Steam branch to install. Set to "unstable" for Build 42 Unstable branch, or leave empty for stable.                                                 |
 | DISCORD_ENABLE                                    | false                                                                                         | Enables global text chat integration with a Discord channel                                                                                         |
 | DISCORD_TOKEN                                     |                                                                                               | Discord bot access token                                                                                                                            |
@@ -279,4 +280,3 @@ Contains functions that are used in the other scripts.
 
 Generates the server settings file from the .env file.
 Uses envsubst to replace the variables in the settings.ini.template file.
-
