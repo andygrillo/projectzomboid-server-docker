@@ -359,6 +359,7 @@
                 <div class="mods-actions">
                     <button class="btn btn-start" onclick="saveMods()">Save Order</button>
                     <button class="btn btn-restart" onclick="saveAndRestart()">Save & Restart</button>
+                    <button class="btn btn-stop" onclick="removeAllMods()">Remove All</button>
                 </div>
             </div>
         </div>
@@ -677,6 +678,24 @@
         async function saveAndRestart() {
             await saveMods();
             serverAction('restart');
+        }
+
+        async function removeAllMods() {
+            if (!confirm('Remove ALL mods? This cannot be undone.')) return;
+
+            mods = { workshop_items: [], mods: [] };
+            try {
+                const res = await fetch('/api/mods', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(mods)
+                });
+                const data = await res.json();
+                showToast(data.success ? 'All mods removed' : data.output, data.success);
+                loadMods();
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
         }
 
         function showToast(message, success) {
