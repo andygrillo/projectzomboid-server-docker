@@ -2,10 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install Docker CLI and Compose plugin (to control host containers)
+# Install Docker CLI (to control host containers)
 RUN apt-get update && apt-get install -y \
     docker.io \
-    docker-compose-plugin \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
