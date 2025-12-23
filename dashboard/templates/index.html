@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PZ Server Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f1a;
+            min-height: 100vh;
+            color: #fff;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .header h1 { font-size: 20px; }
+        .logout {
+            color: #888;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .logout:hover { color: #fff; }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .tab {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 8px;
+            color: #888;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab:hover { background: rgba(255,255,255,0.15); color: #fff; }
+        .tab.active { background: #4ade80; color: #000; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        /* Status Card */
+        .status-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .status-row {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .status-item { flex: 1; min-width: 120px; }
+        .status-label {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .status-value { font-size: 24px; font-weight: 600; }
+        .status-running { color: #4ade80; }
+        .status-stopped { color: #f87171; }
+        .status-unknown { color: #fbbf24; }
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-start { background: #4ade80; color: #000; }
+        .btn-start:hover:not(:disabled) { background: #22c55e; }
+        .btn-stop { background: #f87171; color: #000; }
+        .btn-stop:hover:not(:disabled) { background: #ef4444; }
+        .btn-restart { background: #fbbf24; color: #000; }
+        .btn-restart:hover:not(:disabled) { background: #f59e0b; }
+        .btn-backup { background: #60a5fa; color: #000; }
+        .btn-backup:hover:not(:disabled) { background: #3b82f6; }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+        /* Logs */
+        .logs-card {
+            background: #1a1a2e;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .logs-header {
+            padding: 16px 24px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logs-header h2 { font-size: 16px; }
+        .logs-actions { display: flex; gap: 8px; }
+        .logs-actions button {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .logs-actions button:hover { background: rgba(255,255,255,0.2); }
+        .logs-content {
+            height: 400px;
+            overflow-y: auto;
+            padding: 16px 24px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #a0a0a0;
+        }
+        /* Mods */
+        .mods-card {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .mods-card h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        .add-mod-form {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .add-mod-form input {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 14px;
+        }
+        .add-mod-form input:focus {
+            outline: none;
+            border-color: #4ade80;
+        }
+        .add-mod-form input::placeholder { color: #666; }
+        .mod-list {
+            list-style: none;
+            min-height: 100px;
+        }
+        .mod-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: grab;
+            transition: background 0.2s;
+        }
+        .mod-item:hover { background: rgba(255,255,255,0.1); }
+        .mod-item.sortable-ghost {
+            opacity: 0.4;
+            background: #4ade80;
+        }
+        .mod-item.sortable-chosen { cursor: grabbing; }
+        .mod-handle {
+            color: #666;
+            font-size: 18px;
+            cursor: grab;
+        }
+        .mod-info { flex: 1; }
+        .mod-workshop { font-size: 14px; font-weight: 600; }
+        .mod-id { font-size: 12px; color: #888; }
+        .mod-remove {
+            padding: 6px 12px;
+            background: rgba(239,68,68,0.2);
+            border: none;
+            border-radius: 4px;
+            color: #f87171;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .mod-remove:hover { background: rgba(239,68,68,0.4); }
+        .mod-order {
+            width: 32px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        .mods-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: #4ade80; color: #000; }
+        .toast.error { background: #f87171; color: #000; }
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0,0,0,0.3);
+            border-top-color: #000;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Project Zomboid Server</h1>
+        <a href="/logout" class="logout">Logout</a>
+    </div>
+
+    <div class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('server')">Server</button>
+            <button class="tab" onclick="switchTab('mods')">Mods</button>
+        </div>
+
+        <!-- Server Tab -->
+        <div id="tab-server" class="tab-content active">
+            <div class="status-card">
+                <div class="status-row">
+                    <div class="status-item">
+                        <div class="status-label">Status</div>
+                        <div class="status-value" id="status">Loading...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">CPU</div>
+                        <div class="status-value" id="cpu">--</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Memory</div>
+                        <div class="status-value" id="memory">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-start" id="btn-start" onclick="serverAction('start')">
+                    <span>Start</span>
+                </button>
+                <button class="btn btn-stop" id="btn-stop" onclick="serverAction('stop')">
+                    <span>Stop</span>
+                </button>
+                <button class="btn btn-restart" id="btn-restart" onclick="serverAction('restart')">
+                    <span>Restart</span>
+                </button>
+                <button class="btn btn-backup" id="btn-backup" onclick="serverAction('backup')">
+                    <span>Backup</span>
+                </button>
+            </div>
+
+            <div class="logs-card">
+                <div class="logs-header">
+                    <h2>Server Logs</h2>
+                    <div class="logs-actions">
+                        <button onclick="refreshLogs()">Refresh</button>
+                        <button onclick="clearLogs()">Clear</button>
+                    </div>
+                </div>
+                <div class="logs-content" id="logs">Loading logs...</div>
+            </div>
+        </div>
+
+        <!-- Mods Tab -->
+        <div id="tab-mods" class="tab-content">
+            <div class="mods-card">
+                <h2>Add Mod</h2>
+                <div class="add-mod-form">
+                    <input type="text" id="workshop-id" placeholder="Workshop ID (e.g., 2392987599)" onblur="lookupMod()">
+                    <input type="text" id="mod-id" placeholder="Mod ID (optional)">
+                    <button class="btn btn-start" onclick="addMod()">Add Mod</button>
+                </div>
+                <div id="mod-preview" style="display: none; margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <img id="mod-preview-img" src="" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover;">
+                        <div>
+                            <div id="mod-preview-title" style="font-weight: 600;"></div>
+                            <div id="mod-preview-desc" style="font-size: 12px; color: #888; margin-top: 4px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mods-card">
+                <h2>Mod Load Order</h2>
+                <p style="color: #888; font-size: 12px; margin-bottom: 16px;">Drag to reorder. Mods load from top to bottom.</p>
+
+                <ul class="mod-list" id="mod-list">
+                    <li class="empty-state">Loading mods...</li>
+                </ul>
+
+                <div class="mods-actions">
+                    <button class="btn btn-start" onclick="saveMods()">Save Order</button>
+                    <button class="btn btn-restart" onclick="saveAndRestart()">Save & Restart</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let mods = { workshop_items: [], mods: [] };
+        let sortable = null;
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+
+            if (tab === 'mods') loadMods();
+        }
+
+        // Server functions
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                statusEl.className = 'status-value status-' + (data.status === 'running' ? 'running' : data.status === 'stopped' ? 'stopped' : 'unknown');
+
+                document.getElementById('cpu').textContent = data.cpu;
+                document.getElementById('memory').textContent = data.memory;
+
+                const isRunning = data.status === 'running';
+                document.getElementById('btn-start').disabled = isRunning;
+                document.getElementById('btn-stop').disabled = !isRunning;
+                document.getElementById('btn-restart').disabled = !isRunning;
+            } catch (e) {
+                console.error('Status fetch failed:', e);
+            }
+        }
+
+        async function refreshLogs() {
+            try {
+                const res = await fetch('/api/logs?lines=200');
+                const data = await res.json();
+                const logsEl = document.getElementById('logs');
+                logsEl.textContent = data.logs || 'No logs available';
+                logsEl.scrollTop = logsEl.scrollHeight;
+            } catch (e) {
+                console.error('Logs fetch failed:', e);
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').textContent = '';
+        }
+
+        async function serverAction(action) {
+            const btn = document.getElementById('btn-' + action);
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<div class="spinner"></div><span>Working...</span>';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/' + action, { method: 'POST' });
+                const data = await res.json();
+                showToast(data.success ? 'Success!' : 'Failed: ' + data.output, data.success);
+                setTimeout(fetchStatus, 2000);
+                setTimeout(refreshLogs, 3000);
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
+
+            btn.innerHTML = originalContent;
+            fetchStatus();
+        }
+
+        // Mod functions
+        let modNameCache = {};
+
+        async function lookupMod() {
+            const workshopId = document.getElementById('workshop-id').value.trim();
+            const preview = document.getElementById('mod-preview');
+
+            if (!workshopId || !/^\d+$/.test(workshopId)) {
+                preview.style.display = 'none';
+                return;
+            }
+
+            // Check cache first
+            if (modNameCache[workshopId]) {
+                showModPreview(modNameCache[workshopId]);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/workshop/' + workshopId);
+                const data = await res.json();
+
+                if (data.success) {
+                    modNameCache[workshopId] = data;
+                    showModPreview(data);
+                } else {
+                    preview.style.display = 'none';
+                }
+            } catch (e) {
+                preview.style.display = 'none';
+            }
+        }
+
+        function showModPreview(data) {
+            const preview = document.getElementById('mod-preview');
+            document.getElementById('mod-preview-img').src = data.preview_url || '';
+            document.getElementById('mod-preview-title').textContent = data.title;
+            document.getElementById('mod-preview-desc').textContent = data.description || '';
+            preview.style.display = 'block';
+        }
+
+        async function fetchModName(workshopId) {
+            try {
+                const res = await fetch('/api/workshop/' + workshopId);
+                const data = await res.json();
+                if (data.success) {
+                    modNameCache[workshopId] = data;
+                    const el = document.getElementById('mod-title-' + workshopId);
+                    if (el) el.textContent = data.title;
+                }
+            } catch (e) {}
+        }
+
+        async function loadMods() {
+            try {
+                const res = await fetch('/api/mods');
+                mods = await res.json();
+                renderMods();
+            } catch (e) {
+                console.error('Failed to load mods:', e);
+            }
+        }
+
+        function renderMods() {
+            const list = document.getElementById('mod-list');
+
+            if (mods.workshop_items.length === 0 && mods.mods.length === 0) {
+                list.innerHTML = '<li class="empty-state">No mods installed. Add a mod above.</li>';
+                return;
+            }
+
+            // Create combined list (workshop + mod pairs)
+            const maxLen = Math.max(mods.workshop_items.length, mods.mods.length);
+            let html = '';
+
+            for (let i = 0; i < maxLen; i++) {
+                const workshop = mods.workshop_items[i] || '';
+                const mod = mods.mods[i] || '';
+                const cached = modNameCache[workshop];
+                const title = cached ? cached.title : workshop || '(no workshop ID)';
+                html += `
+                    <li class="mod-item" data-workshop="${workshop}" data-mod="${mod}">
+                        <span class="mod-handle">&#9776;</span>
+                        <span class="mod-order">#${i + 1}</span>
+                        <div class="mod-info">
+                            <div class="mod-workshop" id="mod-title-${workshop}">${title}</div>
+                            <div class="mod-id">${mod || '(no mod ID)'} <span style="color:#666">${workshop ? '(' + workshop + ')' : ''}</span></div>
+                        </div>
+                        <button class="mod-remove" onclick="removeMod('${workshop}', '${mod}')">Remove</button>
+                    </li>
+                `;
+                // Fetch name if not cached
+                if (workshop && !cached) {
+                    fetchModName(workshop);
+                }
+            }
+
+            list.innerHTML = html;
+
+            // Initialize drag-drop
+            if (sortable) sortable.destroy();
+            sortable = new Sortable(list, {
+                animation: 150,
+                handle: '.mod-handle',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                onEnd: updateModOrder
+            });
+        }
+
+        function updateModOrder() {
+            const items = document.querySelectorAll('.mod-item');
+            mods.workshop_items = [];
+            mods.mods = [];
+
+            items.forEach((item, index) => {
+                mods.workshop_items.push(item.dataset.workshop);
+                mods.mods.push(item.dataset.mod);
+                item.querySelector('.mod-order').textContent = '#' + (index + 1);
+            });
+        }
+
+        async function addMod() {
+            const workshopId = document.getElementById('workshop-id').value.trim();
+            const modId = document.getElementById('mod-id').value.trim();
+
+            if (!workshopId) {
+                showToast('Workshop ID is required', false);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/mods/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workshop_id: workshopId, mod_id: modId })
+                });
+                const data = await res.json();
+                showToast(data.output, data.success);
+
+                if (data.success) {
+                    document.getElementById('workshop-id').value = '';
+                    document.getElementById('mod-id').value = '';
+                    document.getElementById('mod-preview').style.display = 'none';
+                    loadMods();
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
+        }
+
+        async function removeMod(workshopId, modId) {
+            if (!confirm('Remove this mod?')) return;
+
+            try {
+                const res = await fetch('/api/mods/remove', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workshop_id: workshopId, mod_id: modId })
+                });
+                const data = await res.json();
+                showToast(data.output, data.success);
+                loadMods();
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
+        }
+
+        async function saveMods() {
+            updateModOrder();
+            try {
+                const res = await fetch('/api/mods', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(mods)
+                });
+                const data = await res.json();
+                showToast(data.output, data.success);
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
+        }
+
+        async function saveAndRestart() {
+            await saveMods();
+            serverAction('restart');
+        }
+
+        function showToast(message, success) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + (success ? 'success' : 'error');
+            setTimeout(() => toast.className = 'toast', 3000);
+        }
+
+        // Initial load
+        fetchStatus();
+        refreshLogs();
+
+        // Auto-refresh
+        setInterval(fetchStatus, 5000);
+        setInterval(refreshLogs, 10000);
+    </script>
+</body>
+</html>

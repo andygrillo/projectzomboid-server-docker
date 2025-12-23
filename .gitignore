@@ -1,2 +1,14 @@
 projectzomboid/
 .vscode
+
+# Environment files with secrets
+.env
+*.env.local
+
+# Server data
+server-files/
+server-data/
+backups/
+
+# Personal deployment notes
+CLAUDE.md

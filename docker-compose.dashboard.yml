@@ -1,0 +1,32 @@
+services:
+  projectzomboid:
+    image: indifferentbroccoli/projectzomboid-server-docker
+    restart: unless-stopped
+    container_name: projectzomboid
+    stop_grace_period: 30s
+    ports:
+      - 16261:16261/udp
+      - 16262:16262/udp
+      - 27015:27015/tcp
+    environment:
+      GENERATE_SETTINGS: true
+    env_file:
+      - .env
+    volumes:
+      - ./server-files:/project-zomboid
+      - ./server-data:/project-zomboid-config
+
+  dashboard:
+    build: ./dashboard
+    restart: unless-stopped
+    container_name: pz-dashboard
+    ports:
+      - 8080:5000
+    environment:
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-admin}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - COMPOSE_DIR=/pz-server
+      - CONTAINER_NAME=projectzomboid
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/pz-server
