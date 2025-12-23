@@ -334,10 +334,15 @@
                 <div id="mod-preview" style="display: none; margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
                     <div style="display: flex; gap: 12px; align-items: center;">
                         <img id="mod-preview-img" src="" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover;">
-                        <div>
+                        <div style="flex: 1;">
                             <div id="mod-preview-title" style="font-weight: 600;"></div>
                             <div id="mod-preview-desc" style="font-size: 12px; color: #888; margin-top: 4px;"></div>
+                            <div id="mod-preview-collection" style="display: none; margin-top: 8px;">
+                                <span style="background: #60a5fa; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Collection</span>
+                                <span id="mod-preview-count" style="color: #888; font-size: 12px; margin-left: 8px;"></span>
+                            </div>
                         </div>
+                        <button id="btn-import-collection" class="btn btn-start" style="display: none;" onclick="importCollection()">Import All</button>
                     </div>
                 </div>
             </div>
@@ -435,9 +440,17 @@
         // Mod functions
         let modNameCache = {};
 
+        let currentCollectionId = null;
+
         async function lookupMod() {
             const workshopId = document.getElementById('workshop-id').value.trim();
             const preview = document.getElementById('mod-preview');
+            const collectionInfo = document.getElementById('mod-preview-collection');
+            const importBtn = document.getElementById('btn-import-collection');
+
+            currentCollectionId = null;
+            collectionInfo.style.display = 'none';
+            importBtn.style.display = 'none';
 
             if (!workshopId || !/^\d+$/.test(workshopId)) {
                 preview.style.display = 'none';
@@ -445,18 +458,27 @@
             }
 
             // Check cache first
-            if (modNameCache[workshopId]) {
+            if (modNameCache[workshopId] && !modNameCache[workshopId].is_collection) {
                 showModPreview(modNameCache[workshopId]);
                 return;
             }
 
             try {
-                const res = await fetch('/api/workshop/' + workshopId);
+                // Try collection API first to check if it's a collection
+                const res = await fetch('/api/collection/' + workshopId);
                 const data = await res.json();
 
                 if (data.success) {
                     modNameCache[workshopId] = data;
                     showModPreview(data);
+
+                    // Show collection UI if it's a collection
+                    if (data.is_collection && data.collection_count > 0) {
+                        currentCollectionId = workshopId;
+                        document.getElementById('mod-preview-count').textContent = data.collection_count + ' mods';
+                        collectionInfo.style.display = 'block';
+                        importBtn.style.display = 'block';
+                    }
                 } else {
                     preview.style.display = 'none';
                 }
@@ -471,6 +493,38 @@
             document.getElementById('mod-preview-title').textContent = data.title;
             document.getElementById('mod-preview-desc').textContent = data.description || '';
             preview.style.display = 'block';
+        }
+
+        async function importCollection() {
+            if (!currentCollectionId) return;
+
+            const btn = document.getElementById('btn-import-collection');
+            const originalText = btn.textContent;
+            btn.innerHTML = '<div class="spinner"></div>';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/mods/import-collection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ collection_id: currentCollectionId })
+                });
+                const data = await res.json();
+                showToast(data.output, data.success);
+
+                if (data.success) {
+                    document.getElementById('workshop-id').value = '';
+                    document.getElementById('mod-id').value = '';
+                    document.getElementById('mod-preview').style.display = 'none';
+                    currentCollectionId = null;
+                    loadMods();
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
+
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
 
         async function fetchModName(workshopId) {
