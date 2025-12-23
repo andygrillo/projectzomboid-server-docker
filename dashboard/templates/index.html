@@ -327,8 +327,9 @@
             <div class="mods-card">
                 <h2>Add Mod</h2>
                 <div class="add-mod-form">
-                    <input type="text" id="workshop-id" placeholder="Workshop ID or Collection ID" onblur="lookupMod()">
+                    <input type="text" id="workshop-id" placeholder="Workshop ID or Collection ID" onkeyup="if(event.key==='Enter')lookupMod()" onblur="lookupMod()">
                     <input type="text" id="mod-id" placeholder="Mod ID (optional)">
+                    <button class="btn btn-secondary" onclick="lookupMod()">Lookup</button>
                     <button class="btn btn-start" id="btn-add-mod" onclick="addMod()">Add Mod</button>
                 </div>
                 <div id="mod-preview" style="display: none; margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
