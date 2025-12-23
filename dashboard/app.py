@@ -244,21 +244,21 @@ def api_logs():
 @app.route('/api/start', methods=['POST'])
 @login_required
 def api_start():
-    result = run_docker_command(['docker', 'compose', 'up', '-d'])
+    result = run_docker_command(['docker-compose', 'up', '-d'])
     return jsonify(result)
 
 
 @app.route('/api/stop', methods=['POST'])
 @login_required
 def api_stop():
-    result = run_docker_command(['docker', 'compose', 'down'])
+    result = run_docker_command(['docker-compose', 'down'])
     return jsonify(result)
 
 
 @app.route('/api/restart', methods=['POST'])
 @login_required
 def api_restart():
-    result = run_docker_command(['docker', 'compose', 'restart'])
+    result = run_docker_command(['docker-compose', 'restart'])
     return jsonify(result)
 
 
