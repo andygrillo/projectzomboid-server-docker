@@ -327,9 +327,9 @@
             <div class="mods-card">
                 <h2>Add Mod</h2>
                 <div class="add-mod-form">
-                    <input type="text" id="workshop-id" placeholder="Workshop ID (e.g., 2392987599)" onblur="lookupMod()">
+                    <input type="text" id="workshop-id" placeholder="Workshop ID or Collection ID" onblur="lookupMod()">
                     <input type="text" id="mod-id" placeholder="Mod ID (optional)">
-                    <button class="btn btn-start" onclick="addMod()">Add Mod</button>
+                    <button class="btn btn-start" id="btn-add-mod" onclick="addMod()">Add Mod</button>
                 </div>
                 <div id="mod-preview" style="display: none; margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
                     <div style="display: flex; gap: 12px; align-items: center;">
@@ -447,10 +447,12 @@
             const preview = document.getElementById('mod-preview');
             const collectionInfo = document.getElementById('mod-preview-collection');
             const importBtn = document.getElementById('btn-import-collection');
+            const addModBtn = document.getElementById('btn-add-mod');
 
             currentCollectionId = null;
             collectionInfo.style.display = 'none';
             importBtn.style.display = 'none';
+            addModBtn.style.display = 'block';
 
             if (!workshopId || !/^\d+$/.test(workshopId)) {
                 preview.style.display = 'none';
@@ -478,6 +480,7 @@
                         document.getElementById('mod-preview-count').textContent = data.collection_count + ' mods';
                         collectionInfo.style.display = 'block';
                         importBtn.style.display = 'block';
+                        addModBtn.style.display = 'none'; // Hide "Add Mod" for collections
                     }
                 } else {
                     preview.style.display = 'none';
@@ -516,6 +519,7 @@
                     document.getElementById('workshop-id').value = '';
                     document.getElementById('mod-id').value = '';
                     document.getElementById('mod-preview').style.display = 'none';
+                    document.getElementById('btn-add-mod').style.display = 'block';
                     currentCollectionId = null;
                     loadMods();
                 }
