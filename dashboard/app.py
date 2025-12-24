@@ -426,5 +426,107 @@ def api_remove_mod():
         return jsonify({'success': False, 'output': str(e)})
 
 
+# World/Save Management
+SERVER_DATA_DIR = os.path.join(COMPOSE_DIR, 'server-data')
+SAVES_DIR = os.path.join(SERVER_DATA_DIR, 'Saves', 'Multiplayer')
+
+
+def get_current_world():
+    """Get current SERVER_NAME from .env file."""
+    env = read_env_file()
+    return env.get('SERVER_NAME', 'servertest')
+
+
+def get_available_worlds():
+    """List available save folders in server-data/Saves/Multiplayer/."""
+    worlds = []
+    if os.path.exists(SAVES_DIR):
+        for name in os.listdir(SAVES_DIR):
+            world_path = os.path.join(SAVES_DIR, name)
+            if os.path.isdir(world_path):
+                # Get folder stats
+                try:
+                    stat = os.stat(world_path)
+                    worlds.append({
+                        'name': name,
+                        'modified': stat.st_mtime
+                    })
+                except OSError:
+                    worlds.append({'name': name, 'modified': 0})
+    # Sort by last modified (newest first)
+    worlds.sort(key=lambda x: x['modified'], reverse=True)
+    return worlds
+
+
+@app.route('/api/worlds')
+@login_required
+def api_get_worlds():
+    """Get current world and list of available worlds."""
+    current = get_current_world()
+    worlds = get_available_worlds()
+    return jsonify({
+        'current': current,
+        'worlds': worlds
+    })
+
+
+@app.route('/api/worlds/switch', methods=['POST'])
+@login_required
+def api_switch_world():
+    """Switch to a different world by changing SERVER_NAME."""
+    data = request.json
+    world_name = data.get('world_name', '').strip()
+
+    if not world_name:
+        return jsonify({'success': False, 'output': 'World name is required'})
+
+    # Validate world name (alphanumeric, underscore, hyphen only)
+    if not re.match(r'^[a-zA-Z0-9_-]+$', world_name):
+        return jsonify({'success': False, 'output': 'Invalid world name. Use only letters, numbers, underscore and hyphen.'})
+
+    try:
+        env = read_env_file()
+        env['SERVER_NAME'] = world_name
+        write_env_file(env)
+        return jsonify({
+            'success': True,
+            'output': f'Switched to world: {world_name}. Restart server to apply.'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'output': str(e)})
+
+
+@app.route('/api/worlds/create', methods=['POST'])
+@login_required
+def api_create_world():
+    """Create a new world by setting SERVER_NAME (world folder is created on server start)."""
+    data = request.json
+    world_name = data.get('world_name', '').strip()
+
+    if not world_name:
+        return jsonify({'success': False, 'output': 'World name is required'})
+
+    # Validate world name
+    if not re.match(r'^[a-zA-Z0-9_-]+$', world_name):
+        return jsonify({'success': False, 'output': 'Invalid world name. Use only letters, numbers, underscore and hyphen.'})
+
+    # Check if world already exists
+    worlds = get_available_worlds()
+    world_names = [w['name'] for w in worlds]
+    if world_name in world_names:
+        return jsonify({'success': False, 'output': 'A world with this name already exists'})
+
+    try:
+        env = read_env_file()
+        env['SERVER_NAME'] = world_name
+        write_env_file(env)
+        return jsonify({
+            'success': True,
+            'output': f'World "{world_name}" will be created on next server start. Restart the server to begin.'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'output': str(e)})
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

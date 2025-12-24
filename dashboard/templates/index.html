@@ -273,6 +273,7 @@
         <!-- Tabs -->
         <div class="tabs">
             <button class="tab active" onclick="switchTab('server')">Server</button>
+            <button class="tab" onclick="switchTab('worlds')">Worlds</button>
             <button class="tab" onclick="switchTab('mods')">Mods</button>
         </div>
 
@@ -319,6 +320,37 @@
                     </div>
                 </div>
                 <div class="logs-content" id="logs">Loading logs...</div>
+            </div>
+        </div>
+
+        <!-- Worlds Tab -->
+        <div id="tab-worlds" class="tab-content">
+            <div class="mods-card">
+                <h2>Current World</h2>
+                <div style="display: flex; align-items: center; gap: 16px; margin-top: 12px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 24px; font-weight: 600;" id="current-world">Loading...</div>
+                        <div style="color: #888; font-size: 12px; margin-top: 4px;">This is the active save that will load when the server starts</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mods-card">
+                <h2>Create New World</h2>
+                <div class="add-mod-form">
+                    <input type="text" id="new-world-name" placeholder="World name (e.g. MyNewWorld)" onkeyup="if(event.key==='Enter')createWorld()">
+                    <button class="btn btn-start" onclick="createWorld()">Create World</button>
+                </div>
+                <p style="color: #888; font-size: 12px; margin-top: 8px;">Creates a fresh world. Use only letters, numbers, underscores and hyphens.</p>
+            </div>
+
+            <div class="mods-card">
+                <h2>Available Worlds</h2>
+                <p style="color: #888; font-size: 12px; margin-bottom: 16px;">Select a world to switch to. Server must be restarted for changes to take effect.</p>
+
+                <ul class="mod-list" id="world-list">
+                    <li class="empty-state">Loading worlds...</li>
+                </ul>
             </div>
         </div>
 
@@ -379,6 +411,7 @@
             document.getElementById('tab-' + tab).classList.add('active');
 
             if (tab === 'mods') loadMods();
+            if (tab === 'worlds') loadWorlds();
         }
 
         // Server functions
@@ -693,6 +726,95 @@
                 const data = await res.json();
                 showToast(data.success ? 'All mods removed' : data.output, data.success);
                 loadMods();
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
+        }
+
+        // World functions
+        let currentWorld = '';
+        let worlds = [];
+
+        async function loadWorlds() {
+            try {
+                const res = await fetch('/api/worlds');
+                const data = await res.json();
+                currentWorld = data.current;
+                worlds = data.worlds;
+                renderWorlds();
+            } catch (e) {
+                console.error('Failed to load worlds:', e);
+            }
+        }
+
+        function renderWorlds() {
+            document.getElementById('current-world').textContent = currentWorld;
+            const list = document.getElementById('world-list');
+
+            if (worlds.length === 0) {
+                list.innerHTML = '<li class="empty-state">No saved worlds found. Create one above or start the server to generate the default world.</li>';
+                return;
+            }
+
+            let html = '';
+            worlds.forEach(world => {
+                const isActive = world.name === currentWorld;
+                const date = world.modified ? new Date(world.modified * 1000).toLocaleString() : 'Unknown';
+                html += `
+                    <li class="mod-item" style="${isActive ? 'border: 2px solid #4ade80;' : ''}">
+                        <div class="mod-info">
+                            <div class="mod-workshop">${world.name}</div>
+                            <div class="mod-id">Last modified: ${date}</div>
+                        </div>
+                        ${isActive
+                            ? '<span style="color: #4ade80; font-weight: 600; padding: 6px 12px;">Active</span>'
+                            : `<button class="btn btn-secondary" onclick="switchWorld('${world.name}')">Switch</button>`
+                        }
+                    </li>
+                `;
+            });
+
+            list.innerHTML = html;
+        }
+
+        async function switchWorld(worldName) {
+            if (!confirm(`Switch to world "${worldName}"? You'll need to restart the server for the change to take effect.`)) return;
+
+            try {
+                const res = await fetch('/api/worlds/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ world_name: worldName })
+                });
+                const data = await res.json();
+                showToast(data.output, data.success);
+                if (data.success) {
+                    loadWorlds();
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
+        }
+
+        async function createWorld() {
+            const worldName = document.getElementById('new-world-name').value.trim();
+            if (!worldName) {
+                showToast('Please enter a world name', false);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/worlds/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ world_name: worldName })
+                });
+                const data = await res.json();
+                showToast(data.output, data.success);
+                if (data.success) {
+                    document.getElementById('new-world-name').value = '';
+                    loadWorlds();
+                }
             } catch (e) {
                 showToast('Error: ' + e.message, false);
             }
