@@ -265,24 +265,31 @@ def api_restart():
 @app.route('/api/backup', methods=['POST'])
 @login_required
 def api_backup():
-    """Create a backup of server-data."""
+    """Create a backup of the current world in Saves/Multiplayer."""
     import datetime
-    timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    backup_name = f'backup-{timestamp}.tar.gz'
-    backup_path = os.path.join(COMPOSE_DIR, 'backups', backup_name)
+    import shutil
 
-    os.makedirs(os.path.join(COMPOSE_DIR, 'backups'), exist_ok=True)
+    # Get current world name
+    env = read_env_file()
+    current_world = env.get('SERVER_NAME', 'servertest')
 
-    result = subprocess.run(
-        ['tar', '-czf', backup_path, 'server-data'],
-        cwd=COMPOSE_DIR,
-        capture_output=True,
-        text=True
-    )
+    # Create backup name with timestamp
+    timestamp = datetime.datetime.now().strftime('%d-%m-%y_%H-%M-%S')
+    backup_name = f'{current_world}_{timestamp}'
 
-    if result.returncode == 0:
+    saves_dir = os.path.join(COMPOSE_DIR, 'server-data', 'Saves', 'Multiplayer')
+    source_path = os.path.join(saves_dir, current_world)
+    backup_path = os.path.join(saves_dir, backup_name)
+
+    # Check source exists
+    if not os.path.exists(source_path):
+        return jsonify({'success': False, 'output': f'World "{current_world}" not found. Start the server first to create it.'})
+
+    try:
+        shutil.copytree(source_path, backup_path)
         return jsonify({'success': True, 'output': f'Backup created: {backup_name}'})
-    return jsonify({'success': False, 'output': result.stderr})
+    except Exception as e:
+        return jsonify({'success': False, 'output': str(e)})
 
 
 @app.route('/api/workshop/<workshop_id>')
@@ -431,6 +438,17 @@ SERVER_DATA_DIR = os.path.join(COMPOSE_DIR, 'server-data')
 SAVES_DIR = os.path.join(SERVER_DATA_DIR, 'Saves', 'Multiplayer')
 
 
+def is_backup_folder(name):
+    """Check if a folder name indicates it's a backup."""
+    # PZ creates backups with patterns like: servername_backup, servername_01-01-24_12-00-00
+    if '_backup' in name.lower():
+        return True
+    # Check for timestamp pattern (date-time suffix)
+    if re.search(r'_\d{2}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$', name):
+        return True
+    return False
+
+
 def get_current_world():
     """Get current SERVER_NAME from .env file."""
     env = read_env_file()
@@ -438,24 +456,31 @@ def get_current_world():
 
 
 def get_available_worlds():
-    """List available save folders in server-data/Saves/Multiplayer/."""
+    """List available save folders, separating worlds from backups."""
     worlds = []
+    backups = []
     if os.path.exists(SAVES_DIR):
         for name in os.listdir(SAVES_DIR):
             world_path = os.path.join(SAVES_DIR, name)
             if os.path.isdir(world_path):
-                # Get folder stats
                 try:
                     stat = os.stat(world_path)
-                    worlds.append({
+                    entry = {
                         'name': name,
                         'modified': stat.st_mtime
-                    })
+                    }
                 except OSError:
-                    worlds.append({'name': name, 'modified': 0})
+                    entry = {'name': name, 'modified': 0}
+
+                if is_backup_folder(name):
+                    backups.append(entry)
+                else:
+                    worlds.append(entry)
+
     # Sort by last modified (newest first)
     worlds.sort(key=lambda x: x['modified'], reverse=True)
-    return worlds
+    backups.sort(key=lambda x: x['modified'], reverse=True)
+    return worlds, backups
 
 
 @app.route('/api/worlds')
@@ -463,10 +488,11 @@ def get_available_worlds():
 def api_get_worlds():
     """Get current world and list of available worlds."""
     current = get_current_world()
-    worlds = get_available_worlds()
+    worlds, backups = get_available_worlds()
     return jsonify({
         'current': current,
-        'worlds': worlds
+        'worlds': worlds,
+        'backups': backups
     })
 
 
@@ -511,9 +537,9 @@ def api_create_world():
         return jsonify({'success': False, 'output': 'Invalid world name. Use only letters, numbers, underscore and hyphen.'})
 
     # Check if world already exists
-    worlds = get_available_worlds()
-    world_names = [w['name'] for w in worlds]
-    if world_name in world_names:
+    worlds, backups = get_available_worlds()
+    all_names = [w['name'] for w in worlds] + [b['name'] for b in backups]
+    if world_name in all_names:
         return jsonify({'success': False, 'output': 'A world with this name already exists'})
 
     try:
@@ -523,6 +549,54 @@ def api_create_world():
         return jsonify({
             'success': True,
             'output': f'World "{world_name}" will be created on next server start. Restart the server to begin.'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'output': str(e)})
+
+
+@app.route('/api/worlds/restore', methods=['POST'])
+@login_required
+def api_restore_backup():
+    """Restore a world from a backup folder."""
+    import shutil
+
+    data = request.json
+    backup_name = data.get('backup_name', '').strip()
+    target_name = data.get('target_name', '').strip()
+
+    if not backup_name:
+        return jsonify({'success': False, 'output': 'Backup name is required'})
+
+    if not target_name:
+        return jsonify({'success': False, 'output': 'Target world name is required'})
+
+    # Validate target name
+    if not re.match(r'^[a-zA-Z0-9_-]+$', target_name):
+        return jsonify({'success': False, 'output': 'Invalid target name. Use only letters, numbers, underscore and hyphen.'})
+
+    backup_path = os.path.join(SAVES_DIR, backup_name)
+    target_path = os.path.join(SAVES_DIR, target_name)
+
+    # Check backup exists
+    if not os.path.exists(backup_path):
+        return jsonify({'success': False, 'output': 'Backup not found'})
+
+    # Check target doesn't exist (unless it's the same as current world)
+    if os.path.exists(target_path):
+        return jsonify({'success': False, 'output': f'World "{target_name}" already exists. Choose a different name or delete it first.'})
+
+    try:
+        # Copy backup to target
+        shutil.copytree(backup_path, target_path)
+
+        # Switch to the restored world
+        env = read_env_file()
+        env['SERVER_NAME'] = target_name
+        write_env_file(env)
+
+        return jsonify({
+            'success': True,
+            'output': f'Restored backup to "{target_name}". Restart server to load it.'
         })
     except Exception as e:
         return jsonify({'success': False, 'output': str(e)})

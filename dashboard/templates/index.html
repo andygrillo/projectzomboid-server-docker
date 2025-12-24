@@ -352,6 +352,15 @@
                     <li class="empty-state">Loading worlds...</li>
                 </ul>
             </div>
+
+            <div class="mods-card">
+                <h2>Backups</h2>
+                <p style="color: #888; font-size: 12px; margin-bottom: 16px;">Automatic backups created by the server. Restore to create a new world from a backup.</p>
+
+                <ul class="mod-list" id="backup-list">
+                    <li class="empty-state">Loading backups...</li>
+                </ul>
+            </div>
         </div>
 
         <!-- Mods Tab -->
@@ -734,6 +743,7 @@
         // World functions
         let currentWorld = '';
         let worlds = [];
+        let backups = [];
 
         async function loadWorlds() {
             try {
@@ -741,7 +751,9 @@
                 const data = await res.json();
                 currentWorld = data.current;
                 worlds = data.worlds;
+                backups = data.backups || [];
                 renderWorlds();
+                renderBackups();
             } catch (e) {
                 console.error('Failed to load worlds:', e);
             }
@@ -770,6 +782,31 @@
                             ? '<span style="color: #4ade80; font-weight: 600; padding: 6px 12px;">Active</span>'
                             : `<button class="btn btn-secondary" onclick="switchWorld('${world.name}')">Switch</button>`
                         }
+                    </li>
+                `;
+            });
+
+            list.innerHTML = html;
+        }
+
+        function renderBackups() {
+            const list = document.getElementById('backup-list');
+
+            if (backups.length === 0) {
+                list.innerHTML = '<li class="empty-state">No backups found. Backups are created automatically by the server.</li>';
+                return;
+            }
+
+            let html = '';
+            backups.forEach(backup => {
+                const date = backup.modified ? new Date(backup.modified * 1000).toLocaleString() : 'Unknown';
+                html += `
+                    <li class="mod-item">
+                        <div class="mod-info">
+                            <div class="mod-workshop">${backup.name}</div>
+                            <div class="mod-id">Last modified: ${date}</div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="restoreBackup('${backup.name}')">Restore</button>
                     </li>
                 `;
             });
@@ -813,6 +850,30 @@
                 showToast(data.output, data.success);
                 if (data.success) {
                     document.getElementById('new-world-name').value = '';
+                    loadWorlds();
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, false);
+            }
+        }
+
+        async function restoreBackup(backupName) {
+            // Extract base name from backup (remove _backup suffix or timestamp)
+            let suggestedName = backupName.replace(/_backup$/i, '').replace(/_\d{2}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/, '');
+            suggestedName = suggestedName + '_restored';
+
+            const targetName = prompt(`Restore backup "${backupName}" to a new world.\n\nEnter name for the restored world:`, suggestedName);
+            if (!targetName) return;
+
+            try {
+                const res = await fetch('/api/worlds/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ backup_name: backupName, target_name: targetName })
+                });
+                const data = await res.json();
+                showToast(data.output, data.success);
+                if (data.success) {
                     loadWorlds();
                 }
             } catch (e) {
