@@ -1,9 +1,10 @@
 import os
 import re
 import subprocess
+import sqlite3
 import requests
 from functools import wraps
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, g
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-me-in-production')
@@ -12,6 +13,41 @@ DASHBOARD_PASSWORD = os.environ.get('DASHBOARD_PASSWORD', 'admin')
 COMPOSE_DIR = os.environ.get('COMPOSE_DIR', '/home/ubuntu/pz-server')
 CONTAINER_NAME = os.environ.get('CONTAINER_NAME', 'projectzomboid')
 ENV_FILE = os.path.join(COMPOSE_DIR, '.env')
+DATABASE = os.path.join(COMPOSE_DIR, 'dashboard.db')
+
+
+def get_db():
+    """Get database connection for the current request."""
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+        db.row_factory = sqlite3.Row
+    return db
+
+
+@app.teardown_appcontext
+def close_connection(exception):
+    """Close database connection at end of request."""
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
+
+def init_db():
+    """Initialize the database with required tables."""
+    db = sqlite3.connect(DATABASE)
+    db.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    db.commit()
+    db.close()
+
+
+# Initialize database on startup
+init_db()
 
 
 def read_env_file():
@@ -57,10 +93,38 @@ def write_env_file(env_vars):
 
 
 def get_mods():
-    """Get current mod configuration."""
-    env = read_env_file()
-    workshop_items = env.get('WORKSHOP_ITEMS', '')
-    mods = env.get('MODS', '')
+    """Get current mod configuration from SQLite, falling back to .env."""
+    db = get_db()
+
+    # Try to get from SQLite first
+    workshop_row = db.execute(
+        'SELECT value FROM settings WHERE key = ?', ('WORKSHOP_ITEMS',)
+    ).fetchone()
+    mods_row = db.execute(
+        'SELECT value FROM settings WHERE key = ?', ('MODS',)
+    ).fetchone()
+
+    # If we have values in SQLite, use those
+    if workshop_row is not None or mods_row is not None:
+        workshop_items = workshop_row['value'] if workshop_row else ''
+        mods = mods_row['value'] if mods_row else ''
+    else:
+        # Fall back to .env file (for initial migration)
+        env = read_env_file()
+        workshop_items = env.get('WORKSHOP_ITEMS', '')
+        mods = env.get('MODS', '')
+
+        # Migrate to SQLite if we found values in .env
+        if workshop_items or mods:
+            db.execute(
+                'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                ('WORKSHOP_ITEMS', workshop_items)
+            )
+            db.execute(
+                'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                ('MODS', mods)
+            )
+            db.commit()
 
     # Parse into lists (semicolon separated)
     workshop_list = [w.strip() for w in workshop_items.split(';') if w.strip()]
@@ -73,10 +137,26 @@ def get_mods():
 
 
 def save_mods(workshop_items, mods):
-    """Save mod configuration."""
+    """Save mod configuration to SQLite and sync to .env file."""
+    workshop_str = ';'.join(workshop_items)
+    mods_str = ';'.join(mods)
+
+    # Save to SQLite (primary storage)
+    db = get_db()
+    db.execute(
+        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        ('WORKSHOP_ITEMS', workshop_str)
+    )
+    db.execute(
+        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        ('MODS', mods_str)
+    )
+    db.commit()
+
+    # Also sync to .env file for the PZ server to read
     env = read_env_file()
-    env['WORKSHOP_ITEMS'] = ';'.join(workshop_items)
-    env['MODS'] = ';'.join(mods)
+    env['WORKSHOP_ITEMS'] = workshop_str
+    env['MODS'] = mods_str
     write_env_file(env)
 
 

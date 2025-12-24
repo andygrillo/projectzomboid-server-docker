@@ -10,5 +10,8 @@ server-files/
 server-data/
 backups/
 
+# Dashboard database
+dashboard.db
+
 # Personal deployment notes
 CLAUDE.md
